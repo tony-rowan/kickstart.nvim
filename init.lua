@@ -118,8 +118,12 @@ vim.schedule(function()
   vim.o.clipboard = 'unnamedplus'
 end)
 
--- Enable break indent
+-- Indentation
+vim.o.smarttab = true
+vim.o.expandtab = true
 vim.o.breakindent = true
+vim.o.shiftwidth = 2
+vim.o.tabstop = 2
 
 -- Save undo history
 vim.o.undofile = true
@@ -205,6 +209,10 @@ vim.keymap.set('n', '<C-k>', '<C-w><C-k>', { desc = 'Move focus to the upper win
 -- vim.keymap.set("n", "<C-S-j>", "<C-w>J", { desc = "Move window to the lower" })
 -- vim.keymap.set("n", "<C-S-k>", "<C-w>K", { desc = "Move window to the upper" })
 
+-- Make saving and quitting a little easier to type
+vim.keymap.set('n', '<leader>w', '<cmd>w<CR>', { desc = '[W]rite current buffer to disk' })
+vim.keymap.set('n', '<leader>x', '<cmd>q<CR>', { desc = 'E[x]it current buffer, writing it to disk' })
+
 -- [[ Basic Autocommands ]]
 --  See `:help lua-guide-autocommands`
 
@@ -216,6 +224,28 @@ vim.api.nvim_create_autocmd('TextYankPost', {
   group = vim.api.nvim_create_augroup('kickstart-highlight-yank', { clear = true }),
   callback = function()
     vim.hl.on_yank()
+  end,
+})
+
+-- [[ Enable autoloading changes on disk ]]
+--   Useful for reloading a file when fetching git changes for example.
+
+-- Enable autoread
+vim.o.autoread = true
+
+-- Trigger checktime when focus is gained, or a buffer is re-entered
+vim.api.nvim_create_autocmd({ 'FocusGained', 'BufEnter', 'CursorHold', 'CursorHoldI' }, {
+  callback = function()
+    if vim.fn.mode() ~= 'c' then
+      vim.cmd 'checktime'
+    end
+  end,
+})
+
+-- Notification after file change detected
+vim.api.nvim_create_autocmd('FileChangedShellPost', {
+  callback = function()
+    vim.api.nvim_echo({ { 'File changed on disk. Buffer reloaded.', 'WarningMsg' } }, true, {})
   end,
 })
 
@@ -671,6 +701,26 @@ require('lazy').setup({
       --  - settings (table): Override the default settings passed when initializing the server.
       --        For example, to see the options for `lua_ls`, you could go to: https://luals.github.io/wiki/settings/
       local servers = {
+        ruby_lsp = {
+          init_options = {
+            formatter = 'standard',
+            linters = { 'standard' },
+            enabledFeatures = {
+              'documentHighlights',
+              'codelens',
+              'documentSymbols',
+              'foldingRanges',
+              'selectionRanges',
+              'formatting',
+              'codeActions',
+            },
+          },
+          addonSettings = {
+            ['Ruby LSP Rails'] = {
+              enablePendingMigrationsPrompt = false,
+            },
+          },
+        },
         -- clangd = {},
         -- gopls = {},
         -- pyright = {},
@@ -772,7 +822,7 @@ require('lazy').setup({
         -- python = { "isort", "black" },
         --
         -- You can use 'stop_after_first' to run the first available formatter from the list
-        -- javascript = { "prettierd", "prettier", stop_after_first = true },
+        javascript = { 'prettierd', 'prettier', stop_after_first = true },
       },
     },
   },
@@ -944,7 +994,7 @@ require('lazy').setup({
     main = 'nvim-treesitter.configs', -- Sets main module to use for opts
     -- [[ Configure Treesitter ]] See `:help nvim-treesitter`
     opts = {
-      ensure_installed = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc' },
+      ensure_installed = { 'bash', 'c', 'diff', 'html', 'lua', 'luadoc', 'markdown', 'markdown_inline', 'query', 'vim', 'vimdoc', 'ruby', 'javascript' },
       -- Autoinstall languages that are not installed
       auto_install = true,
       highlight = {
@@ -979,6 +1029,23 @@ require('lazy').setup({
   -- require 'kickstart.plugins.autopairs',
   -- require 'kickstart.plugins.neo-tree',
   -- require 'kickstart.plugins.gitsigns', -- adds gitsigns recommend keymaps
+
+  -- Rails
+  { 'tpope/vim-rails' },
+
+  -- Vim Test
+  {
+    'vim-test/vim-test',
+    config = function()
+      vim.g['test#strategy'] = 'neovim'
+      vim.g['test#echo_command'] = 0
+      vim.g['test#ruby#rspec#executable'] = 'bin/rspec'
+      vim.g['test#ruby#use_spring_binstub'] = 1
+      vim.keymap.set('n', '<leader>tn', ':TestNearest<CR>', { desc = 'Run nearest test' })
+      vim.keymap.set('n', '<leader>tl', ':TestLast<CR>', { desc = 'Run latest test' })
+      vim.keymap.set('n', '<leader>tf', ':TestFile<CR>', { desc = 'Run tests on file' })
+    end,
+  },
 
   -- NOTE: The import below can automatically add your own plugins, configuration, etc from `lua/custom/plugins/*.lua`
   --    This is the easiest way to modularize your config.
